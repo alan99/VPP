@@ -1,0 +1,239 @@
+__author__ = 'clchang'
+
+import heapq    # 2nd nsmallest/nlargest
+
+class Node:
+    def __init__(self, ID, power):
+        self.x = ID
+        self.power = power
+        self.dist = 0
+        self.used = 0
+        self.fatherID = 0
+        self.otherPower = 0
+        self.otherDist = 1000000000
+        self.linkID = []
+        self.linkDist = []
+        # self.relayID = []
+        # self.relayDist = []
+        self.used = 0
+
+    def add_link(self, link, dist):
+        self.linkID.append(link)
+        self.linkDist.append(dist)
+
+    def delete_link(self, id):
+        # i = self.linkID.index(id)
+        del self.linkDist[id]
+        del self.linkID[id]
+
+    def find_e_of_linkList(self, x, n):
+        if n == 1:
+            return self.linkID.index(x)
+        elif n == 2:
+            return self.linkDist.index(x)
+
+
+
+
+
+
+
+power = 140.0    # necessary power
+distance = 0.0  # max distance
+# Topology: add connection info (need to design!!!!!!!!!)--------------------------------------
+
+# Node [power] (IEEE 33 bus)
+#     1   2   3   4   5   6   7   8   9  10
+N = [ 4,  5,  6,  7, 10, 13,  2,  5,  6,  9,
+     12, 16, 22, 31,  6, 11,  6,  9, 10, 22,
+      5, 21, 14, 19, 11,  9,  9, 10, 13,  9,
+      1,  2,  2]
+N = [0] + N
+
+# Links of IEEE 33 bus
+L = [[0,1,10], [1,2,5], [2,3,5], [2,19,20], [3,4,60], [3,23,16], [4,5,7], [5,6,5],
+     [6,7,4], [6,26,16],
+     [7,8,3], [8,9,3], [9,10,10], [10,11,10], [11,12,2], [12,13,2],
+     [13,14,2], [14,15,2], [15,16,2], [16,17,2], [17,18,2],
+     [19,20,6], [20,21,3], [21,22,6],
+     [23,24,7], [24,25,7],
+     [26,27,3], [27,28,3], [28,29,3], [29,30,3], [30,31,3], [31,32,3], [32,33,3]]
+
+# Node initialize
+nodeList = [Node(i,N[i]) for i in range(0,len(N))]     # node 0 ~ N-1 (node 0 is the grid)
+                                                # initialize Node(ID, power)
+# Link
+for c in L:
+    nodeList[c[0]].add_link(c[1], c[2])
+    nodeList[c[1]].add_link(c[0], c[2])
+
+
+# for j in range(0, 5):
+#     nodeList[j].add_link(j+1, 3)
+#     nodeList[j+1].add_link(j, 3)
+#
+# nodeList[2].add_link(6, 1)
+# nodeList[6].add_link(2, 1)
+#
+# for j in range(6, 9):
+#     nodeList[j].add_link(j+1, 2)
+#     nodeList[j+1].add_link(j, 2)
+
+print [nodeList[i].linkID for i in range(0,len(N))]
+# ----------------------------------------------------------------------------------------------
+print("AA")
+
+
+
+
+IDc = 0                 # IDc: current ID
+nodeList[IDc].used = 2
+IDf = 0                 # IDf: "father" of IDc
+shortest_d = 0.0
+temp = 0
+other_d1 = 1000000000
+other_d2 = 1000000000
+other_p = 0
+
+z = 0
+
+while power > 0:
+    # print(nodeList[IDc].linkID, nodeList[IDc].linkDist)
+
+    # update link status (delete used links)
+    for i, j in enumerate(nodeList[IDc].linkID):
+        if nodeList[j].used == 1:
+            nodeList[IDc].delete_link(i)
+
+    print(IDc, nodeList[IDc].linkID)
+
+    if len(nodeList[IDc].linkID) == 0:          # len(nodeList[IDc].linkID) = 0 --> end point, then just go back to father node
+        if IDc in nodeList[IDf].linkID:
+            z = nodeList[IDf].linkID.index(IDc)
+            nodeList[IDf].delete_link(z)
+
+        IDc = nodeList[IDc].fatherID
+
+        print ("end node jump to ", IDc)
+
+    else:                                       # do basic process
+        # 1. find the shortest link in IDc
+        D = [nodeList[IDc].linkID[i] for i, j in enumerate(nodeList[IDc].linkDist) if min(nodeList[IDc].linkDist) == j]
+        # see enumerate function --> https://docs.python.org/2/library/functions.html#enumerate
+        # the all IDs with shortest link i in set D
+        # find its own power in D
+        listPower = [nodeList[i].power for i in D]
+        temp = listPower.index(max(listPower))
+        idj = D[temp]
+        del listPower[temp]
+        del D[temp]
+
+        idj2 = -1
+        if len(D) > 0:
+            idj2 = D[listPower.index(max(listPower))]
+
+        shortest_d = min(nodeList[IDc].linkDist) + nodeList[IDc].dist
+        # from now on, shortest_d is the shortest distance, and idj is the ID
+        # temp is the position in D of power
+
+        # print(shortest_d, nodeList[IDc].otherDist)
+
+        if shortest_d < nodeList[IDc].otherDist \
+                or (shortest_d == nodeList[IDc].otherDist and nodeList[idj].power > nodeList[IDc].otherPower):
+
+            if nodeList[idj].used == 2:
+                nodeList[idj].otherDist = shortest_d
+                nodeList[idj].otherPower = other_p
+                IDc = idj
+
+            elif nodeList[idj].used == 0:
+                nodeList[idj].used = 1                  # new node is connected (used)
+                nodeList[idj].dist = shortest_d         # update dist of new node
+                power = power - nodeList[idj].power     # update total power info
+                nodeList[idj].fatherID = nodeList[IDc].fatherID
+                # nodeList[idj].fatherID = IDf
+                if nodeList[IDc].used == 2:
+                    nodeList[idj].fatherID = IDc
+                    IDf = IDc
+
+                nodeList[idj].otherDist = nodeList[IDc].otherDist
+                nodeList[idj].otherPower = nodeList[IDc].otherPower
+
+                if len(nodeList[IDc].linkID) > 1:    # if IDc is critical point which has 2 or more links
+                    # nodeList[IDf].add_link(IDc, nodeList[IDc].dist-nodeList[IDf].dist)
+                    nodeList[IDc].used = 2
+
+                    nodeList[idj].fatherID = IDc
+                    IDf = IDc
+                    [x1, x2] = heapq.nsmallest(2, nodeList[IDc].linkDist)
+
+                    if x2 + nodeList[IDc].dist < nodeList[IDc].otherDist:
+                        nodeList[idj].otherDist = x2 + nodeList[IDc].dist
+                        # other_d1 = nodeList[idj].otherDist
+                        if idj2 == -1:
+                            a = nodeList[IDc].find_e_of_linkList(x2, 2)
+                            b = nodeList[IDc].linkID[a]
+                            nodeList[idj].otherPower = nodeList[b].power
+                        else:
+                            nodeList[idj].otherPower = nodeList[idj2].power
+                        other_p = nodeList[idj].otherPower
+
+                temp = nodeList[IDc].find_e_of_linkList(idj, 1)
+                nodeList[IDc].delete_link(temp)
+                temp2 = nodeList[idj].find_e_of_linkList(IDc, 1)
+                nodeList[idj].delete_link(temp2)
+
+            # other_d = nodeList[IDc].otherDist
+            # other_p = nodeList[IDc].otherPower
+
+            IDc = idj
+
+            # print (IDc, power, nodeList[IDc].dist, nodeList[IDc].otherDist)      # test line: new node, current necessary power, and the max distance
+            print (IDc, power, nodeList[IDc].dist, nodeList[IDc].otherDist, nodeList[IDc].fatherID)      # test line: new node, current necessary power, and the max distance
+
+            z = 0
+
+        else:   # Jump to father. Build the virtual connection between IDf and idj
+            nodeList[IDc].used = 2
+            nodeList[IDc].otherDist = 1000000000
+            nodeList[IDc].otherPower = 0
+
+            IDf = nodeList[IDc].fatherID
+            other_d1 = shortest_d - nodeList[IDf].dist
+            other_p = nodeList[idj].power
+
+            nodeList[IDf].add_link(IDc, other_d1)
+
+            IDc = IDf
+            print("jump to ", IDc)
+
+            while other_d1 + nodeList[IDc].dist > nodeList[IDc].otherDist:
+                if other_d1 > min(nodeList[IDc].linkDist):
+                    z = nodeList[IDc].linkDist.index(min(nodeList[IDc].linkDist))
+                    other_p = nodeList[nodeList[IDc].linkID[z]].power
+
+                other_d1 = min(nodeList[IDc].linkDist) + nodeList[IDc].dist - nodeList[IDf].dist
+
+                print("other", other_d1)
+
+                nodeList[IDc].otherDist = 1000000000
+                nodeList[IDc].otherPower = 0
+
+                IDf = nodeList[IDc].fatherID
+                nodeList[IDf].add_link(IDc, other_d1)
+
+                IDc = IDf
+                print(nodeList[IDf].linkDist)
+                print("jump to ", IDc, other_d1)
+
+            # if other_d1 > min(nodeList[IDc].linkDist):
+            #     z = nodeList[IDc].linkDist.index(min(nodeList[IDc].linkDist))
+            #     other_p = nodeList[nodeList[IDc].linkID[z]].power
+            #
+            # other_d1 = min(nodeList[IDc].linkDist) + nodeList[IDc].dist - nodeList[IDf].dist
+
+            # print(nodeList[IDc].linkDist)
+            print("search from ", IDc, other_d1, nodeList[IDc].linkID)
+
+
+print "End!!!!!"
